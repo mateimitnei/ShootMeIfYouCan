@@ -346,6 +346,7 @@ void playing_state(uint32_t now) {
                 Serial.print(" light: "); Serial.println(current_light);
                 last_print_time[i] = now;
 
+                misses=0;
                 score++;
                 if (score >= 10) {
                     game_state = WIN_STATE;
