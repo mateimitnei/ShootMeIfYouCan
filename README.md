@@ -166,7 +166,7 @@ The program works as a finite-state machine, as shown in the diagram below.
 <img src="./images/state_machine.png" width="720">
 
 
-The whole code can be found in [this file](https://github.com/mateimitnei/ShootMeIfYouCan/blob/main/src/main.cpp) on GitHub.
+The whole code can be found in [this file](https://github.com/mateimitnei/ShootMeIfYouCan/blob/main/src/main.cpp).
 
 Main structure, with iterative checks for the game and button states:
 
@@ -195,8 +195,8 @@ void loop() {
 
 When a button press is detected and the current phase is 'STANDBY', it means that the user wants  
 to start playing, so the global state variable is set to 'COUNTDOWN'. If this is not the case and  
-the current phase is not 'STANDBY' or 'INIT', it means that the player wants to restart the game,  
-so a few global variables are reinitialized and the state is set to 'INIT'.
+the current phase is not 'STANDBY', it means that the player wants to restart the game, so a few  
+global variables are reinitialized and the state is set to 'INIT'.
 
 
 ```cpp
