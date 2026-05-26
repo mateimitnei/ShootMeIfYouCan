@@ -192,6 +192,7 @@ void loop() {
     }
 }
 ```
+<br>
 
 When a button press is detected and the current phase is 'STANDBY', it means that the user wants  
 to start playing, so the global state variable is set to 'COUNTDOWN'. If this is not the case and  
@@ -227,7 +228,7 @@ void check_button_press(uint32_t now) {
     }
 }
 ```
-
+<br>
 
 The **light sensor calibration** happens in the 'INIT' state, at the end of which the global variable  
 `target[i].reference_light` is given the mean value of the light level (measured during a  
@@ -251,6 +252,7 @@ if (elapsed >= 2000 && calibrated == 0) {
     calibrated = 1;
 }
 ```
+<br>
 
 I needed a lot of time-tracking variables, so I initially used `millis()` every time I calculated  
 an interval. As an optimization, I kept a single `millis()` call per loop, passing the timestamp  
