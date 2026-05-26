@@ -163,7 +163,7 @@ and another for data). All this is managed by the `TM1637Display` library.
 
 The program works as a finite-state machine, as shown in the diagram below. 
 
-<img src="./images/state_machine.png" width="650">
+<img src="./images/state_machine.png" width="720">
 
 
 The whole code can be found in [this file](https://github.com/mateimitnei/ShootMeIfYouCan/blob/main/src/main.cpp) on GitHub.
