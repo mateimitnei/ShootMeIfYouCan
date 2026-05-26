@@ -44,7 +44,7 @@ targets get into their vertical position.
 
 ### Block Diagram:
 
-<img src="./images/block_diagram.png" width="650">
+<img src="./images/block_diagram.png" width="700">
 
 
 ## Hardware Design
@@ -63,13 +63,13 @@ List of components:
 
 Schematic:
 
-<img src="./images/schematic.png" width="650">
+<img src="./images/schematic.png" width="700">
 
 *Note: I made a custom symbol for the display module since KiCad doesn't have one.*
 
 Top-down and front view of the (aesthetically) unfinished project:
 
-<img src="./images/hardware_top.jpg" width="310">   <img src="./images/hardware_front.jpg" width="310">
+<img src="./images/hardware_top.jpg" width="350">   <img src="./images/hardware_front.jpg" width="350">
 
 I used a perfboard to solder the resistors, power sources, buzzer, LDRs, LEDs and a common GND  
 for the ATmega and the batteries.  
