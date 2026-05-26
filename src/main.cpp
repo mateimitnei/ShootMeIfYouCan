@@ -21,7 +21,8 @@ enum GameState {
     STANDBY_STATE,
     COUNTDOWN_STATE,
     PLAYING_STATE,
-    WIN_STATE
+    WIN_STATE,
+    LOSS_STATE
 };
 GameState game_state = INIT_STATE;
 
@@ -45,22 +46,21 @@ Target targets[3];
 
 // Game variables
 uint8_t score = 0;
-const uint8_t light_threshold = 150;
+uint8_t misses = 0;
+const uint8_t light_difference = 200;
 
 // Timers and counters
 uint32_t time_standby_animation = 0;
-uint32_t time_start_init = 0;
+uint32_t time_start_state = 0;
 uint32_t time_last_frame = 0;
-uint32_t time_start_countdown = 0;
 
-uint8_t calibrated = 0;
+bool calibrated = 0;
 uint16_t calibration_samples = 0;
 uint8_t current_frame = 0;
 uint8_t countdown_value = 3;
 
-// Win state variables
-uint32_t time_start_win = 0;
-uint8_t buzzer_win_step = 0;
+// win and loss state variables
+uint8_t buzzer_step = 0;
 uint8_t score_pos = 99;
 
 bool standby_animation_frame = false;
@@ -83,6 +83,25 @@ const uint8_t OUTLINE[] = {
     SEG_A | SEG_D,
     SEG_A | SEG_B | SEG_C | SEG_D
 };
+
+// Loss frame 1 is just a '0' so I'm using the showNumberDec function for it.
+// Custom data for the next two frames for the loss animation:
+const uint8_t LOSS_FRAME_2[] = {
+    SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F, // '0' at pos 0
+    SEG_C | SEG_D | SEG_E | SEG_G,                 // lower 'o' at pos 1
+    0x00, 
+    0x00
+};
+
+const uint8_t LOSS_FRAME_3[] = {
+    SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F, // '0' at pos 0
+    SEG_C | SEG_D | SEG_E | SEG_G,                 // lower 'o' at pos 1
+    SEG_D,                                         // '_' (bottom segment) at pos 2
+    0x00
+};
+
+// variables for uart communication with serial monitor
+uint32_t last_print_time[3] = {0, 0, 0};
 
 
 // --- Utility functions --- //
@@ -134,6 +153,30 @@ void display_init_animation(uint8_t frame) {
     display.setSegments(data);
 }
 
+void game_init() {
+    for (int i = 0; i < 3; i++) {
+        targets[i].state = WAITING_TARGET;
+        targets[i].reference_light = 0;
+        targets[i].time_start_waiting = 0;
+        targets[i].current_random_interval = 0;
+        targets[i].time_start_rising = 0;
+        digitalWrite(PIN_LED[i], LOW);
+    }
+    game_state = INIT_STATE;
+    calibrated = 0;
+    calibration_samples = 0;
+    time_start_state = millis();
+    raise_all_targets();
+}
+
+void lower_target(int i, uint32_t now) {
+    motors[i].write(0);
+    digitalWrite(PIN_LED[i], LOW);
+    targets[i].current_random_interval = random(1000, 4000);
+    targets[i].time_start_waiting = now;
+    targets[i].state = WAITING_TARGET;
+}
+
 
 // --- State handlers --- //
 
@@ -155,18 +198,14 @@ void check_button_press(uint32_t now) {
                 // Pressed to start the game:
                 if (game_state == STANDBY_STATE) {
                     lower_all_targets();
-                    time_start_countdown = 0;
+                    time_start_state = 0;
                     game_state = COUNTDOWN_STATE;
                 }
                 // Pressed to restart the game:
                 else if (game_state != INIT_STATE) {
                     tone(PIN_BUZZER, 500, 300);
-                    lower_all_targets();
-                    calibrated = 0;
-                    current_frame = 0;
-                    raise_all_targets();
-                    time_start_init = now;
-                    game_state = INIT_STATE;
+                    game_init();
+                    time_start_state = now;
                 }
             }
         }
@@ -182,7 +221,7 @@ void init_state(uint32_t now) {
         current_frame = (current_frame + 1) % 12;
     }
 
-    uint32_t elapsed = now - time_start_init;
+    uint32_t elapsed = now - time_start_state;
 
     // Sample for a second, after the first second of animation
     if (elapsed >= 1000 && elapsed < 2000) {
@@ -196,6 +235,10 @@ void init_state(uint32_t now) {
     if (elapsed >= 2000 && calibrated == 0) {
         for (int i = 0; i < 3; i++) {
             targets[i].reference_light /= calibration_samples;
+            Serial.print("Target ");
+            Serial.print(i);
+            Serial.print(" reference light: ");
+            Serial.println(targets[i].reference_light);
         }
         calibrated = 1;
     }
@@ -221,8 +264,8 @@ void standby_state(uint32_t now) {
 
 void countdown_state(uint32_t now) {
     // Start countdown with '3'
-    if (time_start_countdown == 0) {
-        time_start_countdown = now;
+    if (time_start_state == 0) {
+        time_start_state = now;
         countdown_value = 3;
         display.clear();
         display.showNumberDec(countdown_value, false, 1, 1);
@@ -231,9 +274,9 @@ void countdown_state(uint32_t now) {
     }
 
     // '2' and '1'
-    if (countdown_value > 1 && now - time_start_countdown >= 700) {
+    if (countdown_value > 1 && now - time_start_state >= 700) {
         countdown_value--;
-        time_start_countdown = now;
+        time_start_state = now;
         display.clear();
         display.showNumberDec(countdown_value, false, 1, 1);
         tone(PIN_BUZZER, 800, 100);
@@ -241,16 +284,16 @@ void countdown_state(uint32_t now) {
     }
 
     // 'GO'
-    if (countdown_value == 1 && now - time_start_countdown >= 700) {
+    if (countdown_value == 1 && now - time_start_state >= 700) {
         countdown_value = 0;
-        time_start_countdown = now;
+        time_start_state = now;
         display.setSegments(GO_SEGMENTS);
         tone(PIN_BUZZER, 1200, 500);
         return;
     }
 
     // Move to PLAYING_STATE after 'GO'
-    if (countdown_value == 0 && now - time_start_countdown >= 1000) {
+    if (countdown_value == 0 && now - time_start_state >= 1000) {
         score = 0;
         display_score(score);
         for (int i = 0; i < 3; i++) {
@@ -259,7 +302,7 @@ void countdown_state(uint32_t now) {
             targets[i].time_start_waiting = now;
         }
         game_state = PLAYING_STATE;
-        time_start_countdown = 0;
+        time_start_state = 0;
     }
 }
 
@@ -268,7 +311,8 @@ void playing_state(uint32_t now) {
         // Target in horizontal position
         if (targets[i].state == WAITING_TARGET) {
             if (now - targets[i].time_start_waiting > targets[i].current_random_interval) {
-                motors[i].write(90); digitalWrite(PIN_LED[i], HIGH);
+                motors[i].write(90);
+                digitalWrite(PIN_LED[i], HIGH);
                 targets[i].time_start_rising = now;
                 targets[i].state = RISING_TARGET;
             }
@@ -279,41 +323,58 @@ void playing_state(uint32_t now) {
         }
         // Target in vertical position
         else if (targets[i].state == READY_TARGET) {
-            if (analogRead(PIN_LDR[i]) > (targets[i].reference_light + light_threshold)) {
-                score++;
+            // Read light level
+            uint32_t current_light = analogRead(PIN_LDR[i]);
+            // Send measured light to serial every 250 ms for debugging
+            if (now - last_print_time[i] > 250) {
+                Serial.print("Target "); Serial.print(i);
+                Serial.print(" light: "); Serial.println(current_light);
+                last_print_time[i] = now;
+            }
+
+            // Check if target has been hit
+            if (current_light > (targets[i].reference_light + light_difference)) {
+                lower_target(i, now);
                 display_score(score);
-                motors[i].write(0);
-                digitalWrite(PIN_LED[i], LOW);
                 tone(PIN_BUZZER, 1200, 100);
 
+                score++;
                 if (score >= 10) {
                     game_state = WIN_STATE;
                     lower_all_targets();
-                    buzzer_win_step = 0;
-                    time_start_win = now;
+                    buzzer_step = 0;
+                    time_start_state = now;
                     break;
-                } else {
-                    targets[i].current_random_interval = random(1000, 4000);
-                    targets[i].time_start_waiting = now;
-                    targets[i].state = WAITING_TARGET;
+                }
+            }
+
+            // Check if target has been up for too long
+            if (now - targets[i].time_start_rising > 3000) {
+                lower_target(i, now);
+                misses++;
+                if (misses >= 3) {
+                    game_state = LOSS_STATE;
+                    lower_all_targets();
+                    buzzer_step = 0;
+                    time_start_state = now;
+                    break;
                 }
             }
         }
     }
 }
 
-
 void win_state(uint32_t now) {
-    uint32_t elapsed_total = now - time_start_win;
+    uint32_t elapsed_total = now - time_start_state;
 
     // Buzzer notes
-    if (buzzer_win_step == 0) { tone(PIN_BUZZER, 800, 150); buzzer_win_step++; }
-    else if (buzzer_win_step == 1 && elapsed_total > 150) { buzzer_win_step++; }
-    else if (buzzer_win_step == 2 && elapsed_total > 300) { tone(PIN_BUZZER, 600, 150); buzzer_win_step++; }
-    else if (buzzer_win_step == 3 && elapsed_total > 450) { buzzer_win_step++; }
-    else if (buzzer_win_step == 4 && elapsed_total > 600) { tone(PIN_BUZZER, 1200, 300); buzzer_win_step++; }
+    if (buzzer_step == 0) { tone(PIN_BUZZER, 800, 150); buzzer_step++; }
+    else if (buzzer_step == 1 && elapsed_total > 150) { buzzer_step++; }
+    else if (buzzer_step == 2 && elapsed_total > 300) { tone(PIN_BUZZER, 600, 150); buzzer_step++; }
+    else if (buzzer_step == 3 && elapsed_total > 450) { buzzer_step++; }
+    else if (buzzer_step == 4 && elapsed_total > 600) { tone(PIN_BUZZER, 1200, 300); buzzer_step++; }
 
-    // Animation
+    // Animation loop
     uint8_t next_score_pos = score_pos;
 
     if (elapsed_total < 200 || elapsed_total > 6900) {
@@ -343,6 +404,35 @@ void win_state(uint32_t now) {
     }
 }
 
+void loss_state(uint32_t now) {
+    uint32_t elapsed_total = now - time_start_state;
+
+    // Buzzer and display stages
+    if (buzzer_step == 0) {
+        display.clear();
+        tone(PIN_BUZZER, 1000, 200);
+        display.showNumberDec(0, false, 1, 0);
+        buzzer_step++; 
+    }
+    else if (buzzer_step == 1 && elapsed_total > 200) { buzzer_step++; }
+    else if (buzzer_step == 2 && elapsed_total > 400) { 
+        tone(PIN_BUZZER, 800, 200); 
+        display.setSegments(LOSS_FRAME_2);
+        buzzer_step++; 
+    }
+    else if (buzzer_step == 3 && elapsed_total > 600) { buzzer_step++; }
+    else if (buzzer_step == 4 && elapsed_total > 800) { 
+        tone(PIN_BUZZER, 600, 200);
+        display.setSegments(LOSS_FRAME_3);
+        buzzer_step++;
+    }
+    else if (buzzer_step == 5 && elapsed_total > 1000) { buzzer_step++; }
+    else if (buzzer_step == 6 && elapsed_total > 1200) { 
+        tone(PIN_BUZZER, 400, 400); 
+        display.clear();
+        buzzer_step++; 
+    }
+}
 
 // --- Setup and loop --- //
 
@@ -354,23 +444,12 @@ void setup() {
     for (int i = 0; i < 3; i++) {
         motors[i].attach(PIN_SERVO[i]);
         pinMode(PIN_LED[i], OUTPUT);
-        digitalWrite(PIN_LED[i], LOW);
     }
 
-    // Init data for the targets
-    for (int i = 0; i < 3; i++) {
-        targets[i].state = WAITING_TARGET;
-        targets[i].reference_light = 0;
-        targets[i].time_start_waiting = 0;
-        targets[i].current_random_interval = 0;
-        targets[i].time_start_rising = 0;
-    }
-
-    display.setBrightness(0x01);
+    display.setBrightness(0x09);
     randomSeed(analogRead(A5)); // Generates seed from noise
-    game_state = INIT_STATE;
-    raise_all_targets();
-    time_start_init = millis();
+
+    game_init();
 }
 
 void loop() {
@@ -384,5 +463,6 @@ void loop() {
         case COUNTDOWN_STATE: countdown_state(now); break;
         case PLAYING_STATE: playing_state(now); break;
         case WIN_STATE: win_state(now); break;
+        case LOSS_STATE: loss_state(now); break;
     }
 }
