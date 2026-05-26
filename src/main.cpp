@@ -48,7 +48,7 @@ Target targets[3];
 // Game variables
 uint8_t score = 0;
 uint8_t misses = 0;
-const uint8_t light_difference = 200;
+const uint8_t light_difference = 170;
 
 // Timers and counters
 uint32_t time_standby_animation = 0;
@@ -328,7 +328,7 @@ void playing_state(uint32_t now) {
         else if (targets[i].state == READY_TARGET) {
             // Read light level
             uint32_t current_light = analogRead(PIN_LDR[i]);
-            // Send measured light to serial every 500 ms for debugging
+            // Serial monitor debugging:
             if (now - last_print_time[i] > 500) {
                 Serial.print("Target "); Serial.print(i);
                 Serial.print(" light: "); Serial.println(current_light);
@@ -340,6 +340,11 @@ void playing_state(uint32_t now) {
                 lower_target(i, now);
                 display_score(score);
                 tone(PIN_BUZZER, 1200, 100);
+
+                // Serial monitor debugging:
+                Serial.print("HIT "); Serial.print(i);
+                Serial.print(" light: "); Serial.println(current_light);
+                last_print_time[i] = now;
 
                 score++;
                 if (score >= 10) {
