@@ -48,7 +48,7 @@ Target targets[3];
 // Game variables
 uint8_t score = 0;
 uint8_t misses = 0;
-const uint8_t light_difference = 170;
+const uint8_t light_difference = 90;
 
 // Timers and counters
 uint32_t time_standby_animation = 0;
@@ -338,6 +338,8 @@ void playing_state(uint32_t now) {
             // Check if target has been hit
             if (current_light > (targets[i].reference_light + light_difference)) {
                 lower_target(i, now);
+                misses=0;
+                score++;
                 display_score(score);
                 tone(PIN_BUZZER, 1200, 100);
 
@@ -346,8 +348,6 @@ void playing_state(uint32_t now) {
                 Serial.print(" light: "); Serial.println(current_light);
                 last_print_time[i] = now;
 
-                misses=0;
-                score++;
                 if (score >= 10) {
                     game_state = WIN_STATE;
                     lower_all_targets();
