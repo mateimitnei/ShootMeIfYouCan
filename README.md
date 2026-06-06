@@ -276,7 +276,7 @@ As a novelty element, I created custom animations for the 4-digit-7-segment disp
 The project went according to plan. The final result is exactly what I had in mind when I came up  
 with the idea of a target shooting game.
 
-Demo video: [SOON]
+Demo video: [Watch on YouTube](https://youtu.be/DHAG3U1MEKc?si=m1QkIOfXk44HKeXD)
 
 ## Conclusions
 
