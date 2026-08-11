@@ -27,16 +27,16 @@ misses, game start, win or loss.
 
 ### Game Flow:
 
-1. All targets initially stand in a vertical position and the display starts an animation loop.  
+1. Initially, all targets start in an upright position while the display runs an animation loop.  
 The ATmega takes samples from the photoresistors to determine the reference light level  
 of the room, then the servomotors lay down the targets, ready for game start. 
 
 2. After the button is pressed, the targets start rising randomly. The microcontroller measures  
-the light continuously (only while the targets are raised), each ADC conversion being compared  
+the light continuously while the targets are raised, comparing each ADC conversion  
 with the reference level. In case of a hit, it commands the corresponding servomotor to lower  
-the target, it activates the buzzer and it increases the player’s score. When the score reaches 10,  
-the game ends, leading to the next phase. If a target was raised and it wasn’t hit in the first  
-three seconds, it counts as a miss and the motor lowers it. At three consecutive misses, the game  
+the target, activates the buzzer and increases the player’s score. When the score reaches 10,  
+the game ends and advances to the last phase. If a target is raised and not hit in the first  
+three seconds, it counts as a miss and the motor lowers it. After three consecutive misses, the game  
 is over.
 
 3. For both win or lose situations, the display shows a message, the buzzer makes a sound and all  
